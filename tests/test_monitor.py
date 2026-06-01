@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import unittest
 
-from monitor import Quote, WatchItem, build_alert_message, retry_call, should_alert
+from monitor import Quote, WatchItem, build_alert_message, parse_tencent_quotes, retry_call, should_alert
 
 
 class MonitorTest(unittest.TestCase):
@@ -57,6 +57,14 @@ class MonitorTest(unittest.TestCase):
 
         self.assertEqual(result, "ok")
         self.assertEqual(calls["count"], 2)
+
+    def test_parse_tencent_quotes(self):
+        text = 'v_sh600941="1~中国移动~600941~95.50~95.00~95.20";'
+
+        quotes = parse_tencent_quotes(text, {"600941": "中国移动"})
+
+        self.assertEqual(quotes["600941"].name, "中国移动")
+        self.assertEqual(quotes["600941"].price, 95.5)
 
 
 if __name__ == "__main__":

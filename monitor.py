@@ -98,12 +98,77 @@ def fetch_quotes(items: list[WatchItem]) -> dict[str, Quote]:
     quotes: dict[str, Quote] = {}
 
     if symbols_by_market.get("stock"):
-        stock_data = retry_call("获取 A 股行情", ak.stock_zh_a_spot_em)
-        quotes.update(extract_quotes(stock_data, symbols_by_market["stock"]))
+        try:
+            stock_data = retry_call("获取 A 股行情", ak.stock_zh_a_spot_em)
+            quotes.update(extract_quotes(stock_data, symbols_by_market["stock"]))
+        except RuntimeError as error:
+            print(f"{error}，改用备用行情源。")
 
     if symbols_by_market.get("etf"):
-        etf_data = retry_call("获取 ETF 行情", ak.fund_etf_spot_em)
-        quotes.update(extract_quotes(etf_data, symbols_by_market["etf"]))
+        try:
+            etf_data = retry_call("获取 ETF 行情", ak.fund_etf_spot_em)
+            quotes.update(extract_quotes(etf_data, symbols_by_market["etf"]))
+        except RuntimeError as error:
+            print(f"{error}，改用备用行情源。")
+
+    missing_symbols = {item.symbol for item in items} - set(quotes)
+    if missing_symbols:
+        quotes.update(fetch_tencent_quotes([item for item in items if item.symbol in missing_symbols]))
+
+    return quotes
+
+
+def market_prefix(symbol: str) -> str:
+    if symbol.startswith(("5", "6", "9")):
+        return "sh"
+    return "sz"
+
+
+def fetch_tencent_quotes(items: list[WatchItem]) -> dict[str, Quote]:
+    import requests
+
+    if not items:
+        return {}
+
+    query = ",".join(f"{market_prefix(item.symbol)}{item.symbol}" for item in items)
+
+    def get_text() -> str:
+        response = requests.get(
+            f"https://qt.gtimg.cn/q={query}",
+            timeout=30,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        response.raise_for_status()
+        response.encoding = "gbk"
+        return response.text
+
+    text = retry_call("获取备用行情", get_text, attempts=3, delay_seconds=10)
+    item_names = {item.symbol: item.name for item in items}
+    return parse_tencent_quotes(text, item_names)
+
+
+def parse_tencent_quotes(text: str, item_names: dict[str, str]) -> dict[str, Quote]:
+    quotes: dict[str, Quote] = {}
+    for line in text.splitlines():
+        if '="' not in line:
+            continue
+
+        payload = line.split('="', 1)[1].rstrip('";')
+        fields = payload.split("~")
+        if len(fields) < 4:
+            continue
+
+        name = fields[1].strip()
+        symbol = fields[2].strip()
+        price_text = fields[3].strip()
+        if not symbol or symbol not in item_names or not price_text:
+            continue
+
+        quotes[symbol] = Quote(
+            symbol=symbol,
+            name=name or item_names[symbol],
+            price=float(price_text),
+        )
 
     return quotes
 
