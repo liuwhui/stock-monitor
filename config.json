@@ -1,0 +1,23 @@
+{
+  "cooldown_hours": 12,
+  "stocks": [
+    {
+      "symbol": "588290",
+      "name": "芯片科创ETF华安",
+      "market": "etf",
+      "alert_below": 3.1
+    },
+    {
+      "symbol": "513310",
+      "name": "中韩半导体",
+      "market": "etf",
+      "alert_below": 5.65
+    },
+    {
+      "symbol": "600941",
+      "name": "中国移动",
+      "market": "stock",
+      "alert_below": 96
+    }
+  ]
+}
