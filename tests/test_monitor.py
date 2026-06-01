@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import unittest
 
-from monitor import Quote, WatchItem, build_alert_message, should_alert
+from monitor import Quote, WatchItem, build_alert_message, retry_call, should_alert
 
 
 class MonitorTest(unittest.TestCase):
@@ -43,6 +43,20 @@ class MonitorTest(unittest.TestCase):
         self.assertIn("中国移动（600941）", message)
         self.assertIn("95.500", message)
         self.assertIn("96.000", message)
+
+    def test_retry_call_recovers_after_temporary_failure(self):
+        calls = {"count": 0}
+
+        def flaky_action():
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise ConnectionError("temporary failure")
+            return "ok"
+
+        result = retry_call("测试动作", flaky_action, attempts=2, delay_seconds=0)
+
+        self.assertEqual(result, "ok")
+        self.assertEqual(calls["count"], 2)
 
 
 if __name__ == "__main__":

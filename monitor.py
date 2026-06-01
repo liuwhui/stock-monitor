@@ -3,10 +3,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 
 CONFIG_PATH = Path("config.json")
@@ -15,6 +16,7 @@ PRICE_COLUMNS = ("最新价", "最新", "现价", "price", "最新价格")
 CODE_COLUMNS = ("代码", "证券代码", "symbol", "code")
 NAME_COLUMNS = ("名称", "证券简称", "name")
 CN_TZ = timezone(timedelta(hours=8))
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -69,6 +71,23 @@ def first_existing_column(columns: list[str], candidates: tuple[str, ...]) -> st
     raise KeyError(f"Cannot find any of these columns: {', '.join(candidates)}")
 
 
+def retry_call(label: str, action: Callable[[], T], attempts: int = 3, delay_seconds: int = 5) -> T:
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return action()
+        except Exception as error:
+            last_error = error
+            if attempt == attempts:
+                break
+
+            wait_seconds = delay_seconds * attempt
+            print(f"{label}失败，第 {attempt}/{attempts} 次：{error}。{wait_seconds} 秒后重试。")
+            time.sleep(wait_seconds)
+
+    raise RuntimeError(f"{label}连续失败 {attempts} 次") from last_error
+
+
 def fetch_quotes(items: list[WatchItem]) -> dict[str, Quote]:
     import akshare as ak
 
@@ -79,10 +98,12 @@ def fetch_quotes(items: list[WatchItem]) -> dict[str, Quote]:
     quotes: dict[str, Quote] = {}
 
     if symbols_by_market.get("stock"):
-        quotes.update(extract_quotes(ak.stock_zh_a_spot_em(), symbols_by_market["stock"]))
+        stock_data = retry_call("获取 A 股行情", ak.stock_zh_a_spot_em)
+        quotes.update(extract_quotes(stock_data, symbols_by_market["stock"]))
 
     if symbols_by_market.get("etf"):
-        quotes.update(extract_quotes(ak.fund_etf_spot_em(), symbols_by_market["etf"]))
+        etf_data = retry_call("获取 ETF 行情", ak.fund_etf_spot_em)
+        quotes.update(extract_quotes(etf_data, symbols_by_market["etf"]))
 
     return quotes
 
@@ -141,12 +162,21 @@ def send_telegram_message(message: str) -> None:
 
     token = os.environ["TELEGRAM_BOT_TOKEN"]
     chat_id = os.environ["TELEGRAM_CHAT_ID"]
-    response = requests.post(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        json={"chat_id": chat_id, "text": message},
-        timeout=15,
+
+    def post_message() -> None:
+        response = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": message},
+            timeout=30,
+        )
+        response.raise_for_status()
+
+    retry_call(
+        "发送 Telegram 提醒",
+        post_message,
+        attempts=3,
+        delay_seconds=10,
     )
-    response.raise_for_status()
 
 
 def run(config_path: Path, state_path: Path, dry_run: bool = False) -> int:
