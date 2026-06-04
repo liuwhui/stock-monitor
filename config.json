@@ -14,6 +14,12 @@
       "alert_below": 5.65
     },
     {
+      "symbol": "164824",
+      "name": "印度基金",
+      "market": "etf",
+      "alert_below": 1.23
+    },
+    {
       "symbol": "600941",
       "name": "中国移动",
       "market": "stock",
