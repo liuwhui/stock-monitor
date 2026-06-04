@@ -15,8 +15,8 @@
     },
     {
       "symbol": "164824",
-      "name": "印度基金",
-      "market": "etf",
+      "name": "印度基金LOF",
+      "market": "LOF",
       "alert_below": 1.23
     },
     {
