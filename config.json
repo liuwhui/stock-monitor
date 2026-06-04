@@ -9,7 +9,7 @@
     },
     {
       "symbol": "513310",
-      "name": "中韩半导体",
+      "name": "中韩半导体ETF华泰柏瑞",
       "market": "etf",
       "alert_below": 5.65
     },
@@ -18,6 +18,12 @@
       "name": "印度基金",
       "market": "etf",
       "alert_below": 1.23
+    },
+    {
+      "symbol": "158850",
+      "name": "黄金ETF华夏",
+      "market": "etf",
+      "alert_below": 9.2
     },
     {
       "symbol": "600941",
