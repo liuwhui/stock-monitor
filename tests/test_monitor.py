@@ -75,6 +75,13 @@ class MonitorTest(unittest.TestCase):
         self.assertEqual(gold_items[0].symbol, "518850")
         self.assertEqual(gold_items[0].alert_below, 8.2)
 
+    def test_current_config_keeps_only_active_alerts(self):
+        items, _ = load_config(Path("config.json"))
+
+        self.assertEqual([item.symbol for item in items], ["518850", "600941"])
+        mobile = next(item for item in items if item.symbol == "600941")
+        self.assertEqual(mobile.alert_below, 86)
+
 
 if __name__ == "__main__":
     unittest.main()
