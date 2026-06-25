@@ -8,6 +8,12 @@
       "alert_below": 8.2
     },
     {
+      "symbol": "515180",
+      "name": "中证红利ETF",
+      "market": "etf",
+      "alert_below": 1.315
+    },
+    {
       "symbol": "600941",
       "name": "中国移动",
       "market": "stock",

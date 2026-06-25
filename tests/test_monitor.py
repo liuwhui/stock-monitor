@@ -78,7 +78,10 @@ class MonitorTest(unittest.TestCase):
     def test_current_config_keeps_only_active_alerts(self):
         items, _ = load_config(Path("config.json"))
 
-        self.assertEqual([item.symbol for item in items], ["518850", "600941"])
+        self.assertEqual([item.symbol for item in items], ["518850", "515180", "600941"])
+        dividend = next(item for item in items if item.symbol == "515180")
+        self.assertEqual(dividend.name, "中证红利ETF")
+        self.assertEqual(dividend.alert_below, 1.315)
         mobile = next(item for item in items if item.symbol == "600941")
         self.assertEqual(mobile.alert_below, 86)
 
