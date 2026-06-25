@@ -16,14 +16,14 @@
     {
       "symbol": "164824",
       "name": "印度基金LOF",
-      "market": "LOF",
+      "market": "lof",
       "alert_below": 1.23
     },
     {
-      "symbol": "158850",
+      "symbol": "518850",
       "name": "黄金ETF华夏",
       "market": "etf",
-      "alert_below": 9.2
+      "alert_below": 8.2
     },
     {
       "symbol": "600941",

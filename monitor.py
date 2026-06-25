@@ -104,10 +104,11 @@ def fetch_quotes(items: list[WatchItem]) -> dict[str, Quote]:
         except RuntimeError as error:
             print(f"{error}，改用备用行情源。")
 
-    if symbols_by_market.get("etf"):
+    etf_like_symbols = symbols_by_market.get("etf", set()) | symbols_by_market.get("lof", set())
+    if etf_like_symbols:
         try:
             etf_data = retry_call("获取 ETF 行情", ak.fund_etf_spot_em)
-            quotes.update(extract_quotes(etf_data, symbols_by_market["etf"]))
+            quotes.update(extract_quotes(etf_data, etf_like_symbols))
         except RuntimeError as error:
             print(f"{error}，改用备用行情源。")
 

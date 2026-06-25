@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 import unittest
 
-from monitor import Quote, WatchItem, build_alert_message, parse_tencent_quotes, retry_call, should_alert
+from monitor import Quote, WatchItem, build_alert_message, load_config, parse_tencent_quotes, retry_call, should_alert
 
 
 class MonitorTest(unittest.TestCase):
@@ -65,6 +66,14 @@ class MonitorTest(unittest.TestCase):
 
         self.assertEqual(quotes["600941"].name, "中国移动")
         self.assertEqual(quotes["600941"].price, 95.5)
+
+    def test_current_config_uses_correct_gold_etf_code(self):
+        items, _ = load_config(Path("config.json"))
+        gold_items = [item for item in items if item.name == "黄金ETF华夏"]
+
+        self.assertEqual(len(gold_items), 1)
+        self.assertEqual(gold_items[0].symbol, "518850")
+        self.assertEqual(gold_items[0].alert_below, 8.2)
 
 
 if __name__ == "__main__":
