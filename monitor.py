@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -89,34 +90,8 @@ def retry_call(label: str, action: Callable[[], T], attempts: int = 3, delay_sec
 
 
 def fetch_quotes(items: list[WatchItem]) -> dict[str, Quote]:
-    import akshare as ak
-
-    symbols_by_market: dict[str, set[str]] = {}
-    for item in items:
-        symbols_by_market.setdefault(item.market, set()).add(item.symbol)
-
-    quotes: dict[str, Quote] = {}
-
-    if symbols_by_market.get("stock"):
-        try:
-            stock_data = retry_call("获取 A 股行情", ak.stock_zh_a_spot_em)
-            quotes.update(extract_quotes(stock_data, symbols_by_market["stock"]))
-        except RuntimeError as error:
-            print(f"{error}，改用备用行情源。")
-
-    etf_like_symbols = symbols_by_market.get("etf", set()) | symbols_by_market.get("lof", set())
-    if etf_like_symbols:
-        try:
-            etf_data = retry_call("获取 ETF 行情", ak.fund_etf_spot_em)
-            quotes.update(extract_quotes(etf_data, etf_like_symbols))
-        except RuntimeError as error:
-            print(f"{error}，改用备用行情源。")
-
-    missing_symbols = {item.symbol for item in items} - set(quotes)
-    if missing_symbols:
-        quotes.update(fetch_tencent_quotes([item for item in items if item.symbol in missing_symbols]))
-
-    return quotes
+    """直接从腾讯行情获取价格，跳过 akshare/East Money（已被墙/限流）。"""
+    return fetch_tencent_quotes(items)
 
 
 def market_prefix(symbol: str) -> str:
@@ -245,7 +220,26 @@ def send_telegram_message(message: str) -> None:
     )
 
 
+def is_a_share_trading_time() -> bool:
+    """检查当前是否为A股交易时间（周一至周五，9:30-11:30，13:00-15:00）"""
+    now = datetime.now(CN_TZ)
+    # 周末不交易
+    if now.weekday() >= 5:  # 5=周六，6=周日
+        return False
+    # 交易时间段
+    morning_start = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    morning_end = now.replace(hour=11, minute=30, second=0, microsecond=0)
+    afternoon_start = now.replace(hour=13, minute=0, second=0, microsecond=0)
+    afternoon_end = now.replace(hour=15, minute=0, second=0, microsecond=0)
+    
+    return (morning_start <= now <= morning_end) or (afternoon_start <= now <= afternoon_end)
+
+
 def run(config_path: Path, state_path: Path, dry_run: bool = False) -> int:
+    # 检查是否在A股交易时间
+    if not is_a_share_trading_time():
+        return 0
+    
     items, cooldown_hours = load_config(config_path)
     state = load_state(state_path)
     quotes = fetch_quotes(items)
@@ -259,7 +253,7 @@ def run(config_path: Path, state_path: Path, dry_run: bool = False) -> int:
             missing_symbols.append(item.symbol)
             continue
 
-        print(f"{item.name}({item.symbol}) 当前价格: {quote.price:.3f}, 提醒价: {item.alert_below:.3f}")
+        print(f"{item.name}({item.symbol}) 当前价格: {quote.price:.3f}, 提醒价: {item.alert_below:.3f}", file=sys.stderr)
         if not should_alert(item, quote, state, now, cooldown_hours):
             continue
 
@@ -278,7 +272,7 @@ def run(config_path: Path, state_path: Path, dry_run: bool = False) -> int:
         sent_count += 1
 
     if missing_symbols:
-        print(f"未找到行情数据: {', '.join(missing_symbols)}")
+        print(f"未找到行情数据: {', '.join(missing_symbols)}", file=sys.stderr)
 
     save_state(state_path, state)
     return sent_count
