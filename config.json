@@ -18,6 +18,12 @@
       "name": "中国移动",
       "market": "stock",
       "alert_below": 86
+    },
+    {
+      "symbol": "300750",
+      "name": "宁德时代",
+      "market": "stock",
+      "alert_below": 382
     }
   ]
 }
